@@ -1,12 +1,22 @@
 # 家纺门店 AI 选布预览
 
-这是一个基于 `Next.js` 的门店演示前端，用于展示：
+这是一个基于 `Next.js 16` 的门店选布演示系统，当前已经切换为前后端一体模式。
+
+支持的业务板块：
 
 - 婚庆家纺
 - 高端手工定制
 - 儿童床上用品
 
-当前版本适合先作为 `H5 演示链接` 发给客户预览。
+## 当前能力
+
+- 首屏业务分流
+- 二屏布料分类选择
+- 模板切换
+- 右侧成品效果预览
+- `GET /api/showroom`
+- `GET /api/fabrics`
+- `GET /api/fabrics/[id]`
 
 ## 本地运行
 
@@ -23,44 +33,24 @@ npm run dev
 npm run build
 ```
 
-## 部署到 Vercel
+## 文档
 
-### 方式一：网页操作
+- `docs/project-status.md`
+- `docs/backend-plan.md`
+- `database/schema.sql`
 
-1. 打开 `https://vercel.com`
-2. 登录账号
-3. 选择 `Add New Project`
-4. 导入当前项目的 `frontend` 目录
-5. Framework 选择 `Next.js`
-6. 直接点击 `Deploy`
+## 下一阶段重点
 
-部署完成后会得到一个公网链接，可以直接发给客户。
+- 接入真实数据库
+- 导入布料和图片数据
+- 开发布料后台管理
+- 接入更真实的成品预览能力
 
-### 方式二：命令行部署
+## 部署建议
 
-先安装 Vercel CLI：
+适合部署到支持 Node.js 的环境，例如：
 
-```bash
-npm install -g vercel
-```
-
-然后在 `frontend` 目录执行：
-
-```bash
-vercel login
-vercel
-```
-
-第一次执行 `vercel` 会创建预览环境并返回一个访问链接。
-
-如果要正式发布生产版本：
-
-```bash
-vercel --prod
-```
-
-## 建议的客户分享方式
-
-- 直接发送 Vercel 链接给客户
-- 用链接生成二维码，放到微信或门店平板上
-- 门店平板可将网页加入桌面，作为演示入口
+- 阿里云 ECS + Nginx + PM2
+- 腾讯云轻量服务器
+- 阿里云服务器 + Docker
+- 任意支持 Next.js 的云主机
