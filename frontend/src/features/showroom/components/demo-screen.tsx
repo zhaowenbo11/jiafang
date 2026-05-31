@@ -3,7 +3,12 @@ import { ResultPreview } from "./result-preview";
 import { SectionTitle } from "./section-title";
 import { SelectionCard } from "./selection-card";
 import { useState } from "react";
-import type { BusinessConfig, BusinessId, FabricLibraryItem } from "../types";
+import type {
+  BusinessConfig,
+  BusinessId,
+  FabricLibraryItem,
+  GeneratedPreview,
+} from "../types";
 
 type DemoScreenProps = {
   businesses: BusinessConfig[];
@@ -37,10 +42,14 @@ export function DemoScreen({
   setSelectedTemplateIndex,
 }: DemoScreenProps) {
   const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+  const [generatedPreview, setGeneratedPreview] =
+    useState<GeneratedPreview | null>(null);
+  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
   const fallbackFabric =
     activeBusiness.fabrics[selectedFabricIndex] ?? activeBusiness.fabrics[0];
   const selectedFabric = selectedFabricOverride
     ? {
+        id: selectedFabricOverride.id,
         name: selectedFabricOverride.name,
         detail: `${selectedFabricOverride.material} / ${selectedFabricOverride.craft}`,
         category: selectedFabricOverride.category,
@@ -49,6 +58,8 @@ export function DemoScreen({
         detailSwatch: selectedFabricOverride.detailSwatch,
         previewGradient: selectedFabricOverride.previewGradient,
         previewLabel: selectedFabricOverride.previewLabel,
+        imageUrl: selectedFabricOverride.imageUrl,
+        detailImageUrl: selectedFabricOverride.detailImageUrl,
         pattern: selectedFabricOverride.pattern,
       }
     : fallbackFabric;
@@ -63,6 +74,60 @@ export function DemoScreen({
     (item) =>
       item.business === activeBusiness.id && item.category === activeCategory
   );
+  const selectedFabricLibraryItem =
+    selectedFabricOverride ??
+    visibleFabricItems[0] ??
+    fabricLibrary.find(
+      (item) =>
+        item.business === activeBusiness.id && item.category === selectedFabric.category
+    ) ??
+    null;
+
+  async function handleGeneratePreview() {
+    if (!selectedFabricLibraryItem) return;
+
+    setIsGeneratingPreview(true);
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      const response = await fetch("/api/preview", {
+        method: "POST",
+        signal: controller.signal,
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          businessId: activeBusiness.id,
+          fabricId: selectedFabricLibraryItem.id,
+          templateType: selectedTemplate.layout,
+          templateName: selectedTemplate.name,
+        }),
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        throw new Error("Preview generation failed");
+      }
+
+      const result = (await response.json()) as GeneratedPreview;
+      setGeneratedPreview(result);
+    } catch {
+      setGeneratedPreview({
+        imageUrl:
+          "https://placehold.co/1200x900/8f2438/f6ddc8?text=Preview+Timeout",
+        prompt: "生成请求未在预期时间内返回，当前为超时回退结果。",
+        provider: "mock",
+        generatedAt: new Date().toISOString(),
+        debug: {
+          mode: "fallback",
+          message: "Frontend request timed out or failed.",
+        },
+      });
+    } finally {
+      setIsGeneratingPreview(false);
+    }
+  }
 
   return (
     <section className="rounded-[38px] border border-white/70 bg-[#fffaf6] p-6 shadow-[0_22px_70px_rgba(94,48,33,0.08)] sm:p-7">
@@ -208,6 +273,9 @@ export function DemoScreen({
           actions={activeBusiness.actions}
           selectedFabric={selectedFabric}
           selectedTemplate={selectedTemplate}
+          generatedPreview={generatedPreview}
+          isGeneratingPreview={isGeneratingPreview}
+          onGeneratePreview={handleGeneratePreview}
         />
       </div>
 
