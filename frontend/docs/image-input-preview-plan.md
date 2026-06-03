@@ -1,98 +1,65 @@
-# 真实布料图驱动预览方案
+# 模板驱动预览方案
 
-## 当前目标
+## 一期目标
 
-门店系统需要基于以下输入生成床品成品效果图：
+当前不再以“直接生成完整成品图”为第一入口，而是改为两步：
 
-- 布料主图
-- 布料细节图
-- 床品模板图
-- 业务类型
-- 模板类型
+1. 左侧选布料
+2. 右侧先基于固定主模板做即时贴图预览
+3. 客户确认后，再调用 AI 生成真实成品图
 
-当前接入方案以 `FLUX.2` 为主：
+## 一期业务范围
 
-- 模板床图作为主输入图
-- 布料主图和布料细节图作为额外参考图
-- 后端自动拼装提示词
-- 生成婚庆 / 高端定制成品预览
+- 婚庆家纺：1 张婚床主模板
+- 高端手工定制：1 张主卧主模板
+- 儿童床上用品：一期不做
 
-## 当前代码状态
+## 模板要求
 
-已接入的数据结构：
+每张模板都预先标注以下区域：
 
+- 床单
+- 被面
+- 左枕套
+- 右枕套
+
+## 当前前端方案
+
+右侧预览区分为两层：
+
+### 1. 即时贴图层
+
+- 使用固定模板图作为底图
+- 将选中的布料图或细节图直接映射到已标注区域
+- 目标是秒级反馈，先让客户看布料上床后的整体感觉
+
+### 2. AI 成品图层
+
+- 点击“确认后生成 AI 成品图”
+- 后端携带模板图、布料主图、布料细节图和提示词请求模型
+- 目标是生成更真实、更适合成交展示的成品图
+
+## 当前模板
+
+### 婚庆家纺
+
+- 模板图：`/templates/wedding-hero.jpg`
+- 用途：婚床主视角即时贴图
+
+### 高端手工定制
+
+- 模板图：`/templates/custom-hero.jpg`
+- 用途：主卧主视角即时贴图
+
+## 当前后端输入
+
+- `templateBaseImageUrl`
 - `fabricImageUrl`
 - `fabricDetailImageUrl`
-- `templateBaseImageUrl`
 
-已接入的服务链路：
+## 后续扩展
 
-- `PreviewImageInputs`
-- `PreviewJobRecord.imageInputs`
-- `POST /api/preview`
-
-## 当前模型策略
-
-### 1. FLUX.2
-
-当前推荐主方案。
-
-特点：
-
-- 支持多参考图
-- 更适合“模板图 + 布料主图 + 布料细节图”联合驱动
-- 更符合“高度还原布料”的目标
-
-### 2. FLUX.1 Kontext Pro
-
-仅作为备选。
-
-局限：
-
-- 更偏单主图编辑
-- 对真实布料还原的上限低于 `FLUX.2`
-
-## 当前后端实现
-
-`src/features/showroom/ai-preview.ts` 已按 FLUX 模式重构：
-
-- 根据 `BFL_IMAGE_PROVIDER` 选择 provider
-- 默认走 `flux`
-- 支持 FLUX 创建任务
-- 支持轮询 `polling_url`
-- 支持本地 `public/` 图片自动转 base64
-- 上游失败时自动回退到 mock 预览
-
-## 环境变量
-
-`.env.local` 建议配置：
-
-```bash
-BFL_API_BASE_URL=https://api.bfl.ai/v1
-BFL_API_KEY=your_key
-BFL_IMAGE_PROVIDER=flux
-BFL_IMAGE_MODEL=flux-2-pro-preview
-BFL_FLUX_TIMEOUT_MS=45000
-BFL_FLUX_POLL_INTERVAL_MS=500
-```
-
-## 当前输入规则
-
-### 当模型是 `flux-2-*`
-
-- `input_image` 使用模板床图
-- `input_image_2` 使用布料主图
-- `input_image_3` 使用布料细节图
-
-### 当模型是 `flux-kontext-pro`
-
-- `input_image` 使用模板床图
-- 布料主图和细节图暂不作为额外图片输入
-- 布料信息通过提示词约束输出
-
-## 下一步
-
-1. 将 `.env.local` 切换到 BFL 官方 `flux-2-pro-preview`
-2. 真实测试婚庆模板图生成
-3. 真实测试高端定制模板图生成
-4. 如需更稳定的固定版本，再切到 `flux-2-pro`
+1. 为每个业务线增加更多固定模板
+2. 将当前手工定义的模板区域改成后台可配置数据
+3. 将 AI provider 改成国内稳定可付费方案
+4. 为不同布料增加独立主图和细节图

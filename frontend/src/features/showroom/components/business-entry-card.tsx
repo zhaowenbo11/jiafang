@@ -4,7 +4,7 @@ type BusinessEntryCardProps = {
   business: BusinessConfig;
   isSelected: boolean;
   onSelect: (id: BusinessId) => void;
-  onEnter: () => void;
+  onEnter: (id: BusinessId) => void;
 };
 
 export function BusinessEntryCard({
@@ -26,7 +26,7 @@ export function BusinessEntryCard({
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold tracking-[0.18em] uppercase ${
+              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] ${
                 isSelected
                   ? "bg-[#f7ece5] text-[#8d5441]"
                   : "bg-white/14 text-white/88"
@@ -93,7 +93,7 @@ export function BusinessEntryCard({
           </button>
           <button
             type="button"
-            onClick={onEnter}
+            onClick={() => onEnter(business.id)}
             className={`rounded-full px-4 py-2 text-sm font-medium transition ${
               isSelected
                 ? "bg-[#8f2438] text-white hover:bg-[#7f2032]"

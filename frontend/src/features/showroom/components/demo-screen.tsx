@@ -1,20 +1,17 @@
-import { PaletteCard } from "./palette-card";
+import { useMemo, useState } from "react";
 import { ResultPreview } from "./result-preview";
 import { SectionTitle } from "./section-title";
-import { SelectionCard } from "./selection-card";
-import { useState } from "react";
 import type {
   BusinessConfig,
-  BusinessId,
   FabricLibraryItem,
   GeneratedPreview,
 } from "../types";
 
+const AI_REQUEST_TIMEOUT_MS = 120000;
+
 type DemoScreenProps = {
-  businesses: BusinessConfig[];
   fabricLibrary: FabricLibraryItem[];
   activeBusiness: BusinessConfig;
-  onSelectBusiness: (id: BusinessId) => void;
   onBack: () => void;
   selectedCategory: string;
   setSelectedCategory: (category: string) => void;
@@ -26,11 +23,26 @@ type DemoScreenProps = {
   setSelectedTemplateIndex: (index: number) => void;
 };
 
+function toPreviewFabric(item: FabricLibraryItem) {
+  return {
+    id: item.id,
+    name: item.name,
+    detail: `${item.material} / ${item.craft}`,
+    category: item.category,
+    swatch: item.swatch,
+    secondarySwatch: item.secondarySwatch,
+    detailSwatch: item.detailSwatch,
+    previewGradient: item.previewGradient,
+    previewLabel: item.previewLabel,
+    imageUrl: item.imageUrl,
+    detailImageUrl: item.detailImageUrl,
+    pattern: item.pattern,
+  };
+}
+
 export function DemoScreen({
-  businesses,
   fabricLibrary,
   activeBusiness,
-  onSelectBusiness,
   onBack,
   selectedCategory,
   setSelectedCategory,
@@ -41,56 +53,52 @@ export function DemoScreen({
   selectedTemplateIndex,
   setSelectedTemplateIndex,
 }: DemoScreenProps) {
-  const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
   const [generatedPreview, setGeneratedPreview] =
     useState<GeneratedPreview | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
-  const fallbackFabric =
-    activeBusiness.fabrics[selectedFabricIndex] ?? activeBusiness.fabrics[0];
-  const selectedFabric = selectedFabricOverride
-    ? {
-        id: selectedFabricOverride.id,
-        name: selectedFabricOverride.name,
-        detail: `${selectedFabricOverride.material} / ${selectedFabricOverride.craft}`,
-        category: selectedFabricOverride.category,
-        swatch: selectedFabricOverride.swatch,
-        secondarySwatch: selectedFabricOverride.secondarySwatch,
-        detailSwatch: selectedFabricOverride.detailSwatch,
-        previewGradient: selectedFabricOverride.previewGradient,
-        previewLabel: selectedFabricOverride.previewLabel,
-        imageUrl: selectedFabricOverride.imageUrl,
-        detailImageUrl: selectedFabricOverride.detailImageUrl,
-        pattern: selectedFabricOverride.pattern,
-      }
-    : fallbackFabric;
-  const selectedTemplate =
-    activeBusiness.templates[selectedTemplateIndex] ?? activeBusiness.templates[0];
+
   const activeCategory =
     selectedCategory ||
-    selectedFabric.category ||
+    selectedFabricOverride?.category ||
     activeBusiness.fabricCategories[0] ||
     "";
-  const visibleFabricItems = fabricLibrary.filter(
-    (item) =>
-      item.business === activeBusiness.id && item.category === activeCategory
+
+  const visibleFabricItems = useMemo(
+    () =>
+      fabricLibrary.filter(
+        (item) =>
+          item.business === activeBusiness.id && item.category === activeCategory
+      ),
+    [fabricLibrary, activeBusiness.id, activeCategory]
   );
-  const selectedFabricLibraryItem =
-    selectedFabricOverride ??
+
+  const fallbackFabricLibraryItem =
     visibleFabricItems[0] ??
-    fabricLibrary.find(
-      (item) =>
-        item.business === activeBusiness.id && item.category === selectedFabric.category
-    ) ??
+    fabricLibrary.find((item) => item.business === activeBusiness.id) ??
     null;
+
+  const selectedFabricLibraryItem = selectedFabricOverride;
+  const previewFabricLibraryItem =
+    selectedFabricOverride ?? fallbackFabricLibraryItem;
+
+  const selectedFabric = previewFabricLibraryItem
+    ? toPreviewFabric(previewFabricLibraryItem)
+    : toPreviewFabric(
+        fabricLibrary.find((item) => item.business === activeBusiness.id)!
+      );
+
+  const selectedTemplate =
+    activeBusiness.templates[selectedTemplateIndex] ?? activeBusiness.templates[0];
 
   async function handleGeneratePreview() {
     if (!selectedFabricLibraryItem) return;
 
     setIsGeneratingPreview(true);
 
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), AI_REQUEST_TIMEOUT_MS);
+
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000);
       const response = await fetch("/api/preview", {
         method: "POST",
         signal: controller.signal,
@@ -102,9 +110,10 @@ export function DemoScreen({
           fabricId: selectedFabricLibraryItem.id,
           templateType: selectedTemplate.layout,
           templateName: selectedTemplate.name,
+          generationStage: "ai_render",
+          outputGoal: "sales_preview",
         }),
       });
-      clearTimeout(timeout);
 
       if (!response.ok) {
         throw new Error("Preview generation failed");
@@ -116,7 +125,7 @@ export function DemoScreen({
       setGeneratedPreview({
         imageUrl:
           "https://placehold.co/1200x900/8f2438/f6ddc8?text=Preview+Timeout",
-        prompt: "生成请求未在预期时间内返回，当前为超时回退结果。",
+        prompt: "AI 成品图请求超时，当前显示回退结果。",
         provider: "mock",
         generatedAt: new Date().toISOString(),
         debug: {
@@ -125,6 +134,7 @@ export function DemoScreen({
         },
       });
     } finally {
+      clearTimeout(timeout);
       setIsGeneratingPreview(false);
     }
   }
@@ -142,7 +152,8 @@ export function DemoScreen({
                 {activeBusiness.title}演示页
               </h2>
               <p className="mt-2 max-w-3xl text-sm leading-7 text-[#70574c]">
-                这里是门店平板真正给顾客看的第二屏。导购围绕当前业务展示推荐布料、模板和实时效果图，再决定下一步报价或下单。
+                左侧先按分类筛选布料，并让客户先选中细节图；确认后再点击 AI
+                生成成品图。
               </p>
             </div>
           </div>
@@ -155,30 +166,7 @@ export function DemoScreen({
             >
               返回业务选择
             </button>
-            <button
-              type="button"
-              className="rounded-full bg-[#8f2438] px-4 py-2 text-sm font-medium text-white transition hover:bg-[#7f2032]"
-            >
-              下一步
-            </button>
           </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {businesses.map((business) => (
-            <button
-              key={business.id}
-              type="button"
-              onClick={() => onSelectBusiness(business.id)}
-              className={`rounded-full px-4 py-2 text-sm transition ${
-                business.id === activeBusiness.id
-                  ? "bg-[#8f2438] text-white"
-                  : "border border-[#dec7b8] bg-white text-[#6f5448] hover:bg-[#f8efe8]"
-              }`}
-            >
-              {business.title}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -205,64 +193,108 @@ export function DemoScreen({
         </div>
       </div>
 
-      <div className="mt-6 grid gap-6 xl:grid-cols-[0.72fr_0.72fr_1.16fr]">
-        <div className="space-y-6">
-          <PaletteCard colors={activeBusiness.palette} />
+      <div className="mt-6 grid gap-6 xl:grid-cols-[0.92fr_1.08fr]">
+        <article className="rounded-[30px] border border-[#ead8cd] bg-white p-5 shadow-[0_16px_48px_rgba(94,48,33,0.06)]">
+          <SectionTitle
+            eyebrow="布料分类"
+            title="选择分类与细节图"
+            description="先选择布料分类，再点击某一张布料细节图。客户确认选中后，再点击右侧 AI 生成成品图。"
+          />
 
-          <article className="rounded-[30px] border border-[#ead8cd] bg-white p-5 shadow-[0_16px_48px_rgba(94,48,33,0.06)]">
-            <SectionTitle
-              eyebrow="布料分类"
-              title="当前业务分类"
-              description="先按业务查看布料分类，后续接入真实布料数据后，再按分类进入具体选择。"
-            />
-            <div className="mt-5 flex flex-wrap gap-2">
+          <div className="mt-5">
+            <label className="mb-2 block text-sm font-semibold text-[#6f5448]">
+              布料分类
+            </label>
+            <select
+              value={activeCategory}
+              onChange={(event) => {
+                const nextCategory = event.target.value;
+                setSelectedCategory(nextCategory);
+                const nextIndex =
+                  activeBusiness.fabricCategoryBindings[nextCategory] ?? 0;
+                setSelectedFabricIndex(nextIndex);
+                setSelectedTemplateIndex(0);
+                setSelectedFabricOverride(null);
+                setGeneratedPreview(null);
+              }}
+              className="w-full rounded-[18px] border border-[#e2cdc2] bg-[#fffaf6] px-4 py-3 text-sm text-[#2d201a] outline-none transition focus:border-[#c69782]"
+            >
               {activeBusiness.fabricCategories.map((category) => (
-                <button
-                  key={category}
-                  type="button"
-                  onClick={() => {
-                    setSelectedCategory(category);
-                    const nextIndex =
-                      activeBusiness.fabricCategoryBindings[category] ?? 0;
-                    setSelectedFabricIndex(nextIndex);
-                    setSelectedFabricOverride(null);
-                    setIsCategoryDialogOpen(true);
-                  }}
-                  className={`rounded-full border px-3 py-2 text-sm font-medium transition ${
-                    activeCategory === category
-                      ? "border-[#c89f8c] bg-[#f8ece5] text-[#7b4c39]"
-                      : "border-[#ead8cd] bg-[#fffaf6] text-[#6f5448] hover:bg-[#f8efe8]"
-                  }`}
-                >
+                <option key={category} value={category}>
                   {category}
-                </button>
+                </option>
               ))}
-            </div>
-          </article>
-        </div>
+            </select>
+          </div>
 
-        <div className="space-y-6">
-          <article className="rounded-[30px] border border-[#ead8cd] bg-white p-5 shadow-[0_16px_48px_rgba(94,48,33,0.06)]">
-            <SectionTitle
-              eyebrow="模板切换"
-              title="当前演示模板"
-              description="按顾客关注点切换正视图、细节图和氛围图。"
-            />
-            <div className="mt-5 space-y-3">
-              {activeBusiness.templates.map((template, index) => (
-                <SelectionCard
-                  key={template.name}
-                  title={template.name}
-                  subtitle={activeBusiness.title}
-                  detail={template.detail}
-                  isActive={index === selectedTemplateIndex}
-                  accentSoft={activeBusiness.accentSoft}
-                  onClick={() => setSelectedTemplateIndex(index)}
-                />
-              ))}
+          <div className="mt-6 space-y-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-semibold text-[#2b1d18]">
+                {activeCategory}细节图
+              </h3>
+              <span className="text-xs font-medium text-[#8b6150]">
+                先选图，再生成
+              </span>
             </div>
-          </article>
-        </div>
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              {visibleFabricItems.map((item) => {
+                const isActive = selectedFabricOverride?.id === item.id;
+
+                return (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedFabricOverride(item);
+                      setGeneratedPreview(null);
+                    }}
+                    className={`overflow-hidden rounded-[24px] border text-left transition ${
+                      isActive
+                        ? "border-[#c69782] bg-[#fff4ed] shadow-[0_18px_40px_rgba(94,48,33,0.1)]"
+                        : "border-[#ead8cd] bg-white hover:bg-[#fffaf6]"
+                    }`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={
+                        item.detailImageUrl ||
+                        item.imageUrl ||
+                        "https://placehold.co/800x560"
+                      }
+                      alt={`${item.name} 细节图`}
+                      className="h-[190px] w-full object-cover"
+                    />
+                    <div className="space-y-2 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h4 className="text-base font-semibold text-[#2d201a]">
+                            {item.name}
+                          </h4>
+                          <p className="mt-1 text-sm text-[#8b6150]">
+                            {item.material} / {item.craft}
+                          </p>
+                        </div>
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-medium ${
+                            isActive
+                              ? "bg-[#8f2438] text-white"
+                              : "bg-[#f8ece5] text-[#8b5a48]"
+                          }`}
+                        >
+                          {isActive ? "已选中" : "点击选择"}
+                        </span>
+                      </div>
+                      <p className="text-sm leading-6 text-[#70584d]">
+                        {item.description}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </article>
 
         <ResultPreview
           businessId={activeBusiness.id}
@@ -276,102 +308,9 @@ export function DemoScreen({
           generatedPreview={generatedPreview}
           isGeneratingPreview={isGeneratingPreview}
           onGeneratePreview={handleGeneratePreview}
+          canGeneratePreview={Boolean(selectedFabricLibraryItem)}
         />
       </div>
-
-      {isCategoryDialogOpen ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#2e1c16]/35 px-4 backdrop-blur-sm">
-          <div className="w-full max-w-3xl rounded-[32px] border border-white/60 bg-[#fffaf6] p-6 shadow-[0_32px_90px_rgba(54,27,19,0.18)]">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#a06b58]">
-                  布料分类
-                </p>
-                <h3 className="mt-2 text-2xl font-semibold text-[#2b1d18]">
-                  {activeCategory}
-                </h3>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-[#72584c]">
-                  这里先按 mock 布料库展示该分类下的布料信息。后续接入真实布料库后，可直接替换为后台数据。
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsCategoryDialogOpen(false)}
-                className="rounded-full border border-[#e2cdc2] bg-white px-4 py-2 text-sm font-medium text-[#6f5448] transition hover:bg-[#f8efe8]"
-              >
-                关闭
-              </button>
-            </div>
-
-            <div className="mt-6 grid gap-4 md:grid-cols-2">
-              {visibleFabricItems.map((item) => (
-                <div
-                  key={item.id}
-                  className="rounded-[24px] border border-[#ead8cd] bg-white p-4 shadow-[0_12px_30px_rgba(94,48,33,0.05)]"
-                >
-                  <div className="flex items-start gap-4">
-                    <div
-                      className="h-[78px] w-[78px] rounded-[20px] border border-black/5"
-                      style={{
-                        background: `linear-gradient(145deg, ${item.secondarySwatch}, ${item.swatch})`,
-                      }}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <h4 className="text-base font-semibold text-[#2d201a]">
-                        {item.name}
-                      </h4>
-                      <p className="mt-1 text-sm font-medium text-[#8b6150]">
-                        {item.material} / {item.craft}
-                      </p>
-                      <p className="mt-2 text-sm leading-6 text-[#70584d]">
-                        {item.description}
-                      </p>
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {item.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full bg-[#f8ece5] px-2.5 py-1 text-xs font-medium text-[#8b5a48]"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                      <div className="mt-3 flex items-center justify-between gap-3">
-                        <span className="text-sm font-semibold text-[#7b4c39]">
-                          {item.priceRange}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setSelectedFabricOverride(item);
-                            setIsCategoryDialogOpen(false);
-                          }}
-                          className="rounded-full bg-[#8f2438] px-3 py-1.5 text-xs font-medium text-white transition hover:bg-[#7f2032]"
-                        >
-                          选用此布料
-                        </button>
-                      </div>
-                      <p className="mt-2 text-xs font-medium text-[#927164]">
-                        适用季节：{item.season}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="mt-6 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setIsCategoryDialogOpen(false)}
-                className="rounded-full bg-[#8f2438] px-5 py-3 text-sm font-medium text-white transition hover:bg-[#7f2032]"
-              >
-                知道了
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </section>
   );
 }

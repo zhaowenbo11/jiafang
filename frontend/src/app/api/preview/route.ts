@@ -26,6 +26,7 @@ export async function POST(request: Request) {
     templateType: body.templateType,
     templateName: body.templateName,
     prompt: job.prompt,
+    aiRequest: job.aiRequest,
     imageInputs: job.imageInputs,
   });
 
@@ -38,6 +39,8 @@ export async function POST(request: Request) {
 
   return NextResponse.json({
     jobId: job.id,
+    aiRequest: job.aiRequest,
+    promptBundle: job.promptBundle,
     ...preview,
   });
 }

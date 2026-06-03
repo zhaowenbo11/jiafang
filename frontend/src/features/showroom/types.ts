@@ -1,6 +1,26 @@
-export type BusinessId = "wedding" | "custom" | "kids";
+export type BusinessId = "wedding" | "custom";
 
 export type Screen = "entry" | "demo";
+
+export type FabricPattern =
+  | "embroidery"
+  | "jacquard"
+  | "gift"
+  | "tailor"
+  | "luxe"
+  | "gold";
+
+export type PreviewOverlayRegion = {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  radius?: string;
+  rotation?: number;
+  opacity?: number;
+};
 
 export type FabricOption = {
   id?: string;
@@ -14,23 +34,16 @@ export type FabricOption = {
   previewLabel: string;
   imageUrl?: string;
   detailImageUrl?: string;
-  pattern:
-    | "embroidery"
-    | "jacquard"
-    | "gift"
-    | "tailor"
-    | "luxe"
-    | "gold"
-    | "cloud"
-    | "forest"
-    | "stars";
+  pattern: FabricPattern;
 };
 
 export type TemplateOption = {
   name: string;
   detail: string;
   previewTag: string;
-  layout: "hero" | "detail" | "scene";
+  layout: "hero";
+  baseImageUrl: string;
+  overlayRegions: PreviewOverlayRegion[];
 };
 
 export type FabricLibraryItem = {
@@ -51,22 +64,13 @@ export type FabricLibraryItem = {
   previewLabel: string;
   imageUrl?: string;
   detailImageUrl?: string;
-  pattern:
-    | "embroidery"
-    | "jacquard"
-    | "gift"
-    | "tailor"
-    | "luxe"
-    | "gold"
-    | "cloud"
-    | "forest"
-    | "stars";
+  pattern: FabricPattern;
 };
 
 export type GeneratedPreview = {
   imageUrl: string;
   prompt: string;
-  provider: "mock" | "flux";
+  provider: "mock" | "flux" | "qwen" | "wanx" | "jimeng";
   generatedAt: string;
   debug?: {
     mode: "real" | "fallback";
@@ -75,18 +79,34 @@ export type GeneratedPreview = {
     model?: string;
     responseSnippet?: string;
     message?: string;
+    meta?: {
+      reqKey?: string;
+      inputMode?: "image_urls" | "binary_data_base64" | "mixed" | "unknown";
+      imageCount?: number;
+      size?: string;
+      width?: number;
+      height?: number;
+      usedImageUrls?: string[];
+      localImagePaths?: string[];
+    };
   };
 };
 
-export type PreviewTemplateType = "hero" | "scene" | "detail";
+export type PreviewTemplateType = "hero";
 
 export type PreviewJobStatus = "queued" | "processing" | "succeeded" | "failed";
+
+export type PreviewGenerationStage = "instant_preview" | "ai_render";
+
+export type PreviewOutputGoal = "sales_preview" | "realistic_render";
 
 export type PreviewRequestPayload = {
   businessId: BusinessId;
   fabricId: string;
   templateType: PreviewTemplateType;
   templateName: string;
+  generationStage?: PreviewGenerationStage;
+  outputGoal?: PreviewOutputGoal;
 };
 
 export type PreviewImageInputs = {
@@ -103,13 +123,28 @@ export type TemplateRegistryItem = {
   baseImageUrl?: string;
 };
 
-export type PromptTemplateKey =
-  | "wedding_hero"
-  | "wedding_scene"
-  | "wedding_detail"
-  | "custom_hero"
-  | "custom_scene"
-  | "custom_detail";
+export type PromptTemplateKey = "wedding_hero" | "custom_hero";
+
+export type PreviewPromptTemplate = {
+  key: PromptTemplateKey;
+  businessId: BusinessId;
+  templateType: PreviewTemplateType;
+  title: string;
+  summary: string;
+  systemPrompt: string;
+  userPrompt: string;
+  negativePrompt: string;
+};
+
+export type PreviewPromptBundle = {
+  templateKey: PromptTemplateKey;
+  title: string;
+  summary: string;
+  systemPrompt: string;
+  userPrompt: string;
+  negativePrompt: string;
+  composedPrompt: string;
+};
 
 export type PreviewPromptContext = {
   businessId: BusinessId;
@@ -123,12 +158,41 @@ export type PreviewPromptContext = {
   sceneDescription: string;
 };
 
+export type PreviewAiRequestParams = {
+  provider: "mock" | "flux" | "qwen" | "wanx" | "jimeng";
+  model: string;
+  stage: PreviewGenerationStage;
+  outputGoal: PreviewOutputGoal;
+  promptTemplateKey: PromptTemplateKey;
+  promptTitle: string;
+  systemPrompt: string;
+  userPrompt: string;
+  negativePrompt: string;
+  prompt: string;
+  aspectRatio: string;
+  size: string;
+  quality: "standard" | "high";
+  imageInputs: PreviewImageInputs;
+  constraints: {
+    preserveRoomLayout: boolean;
+    preserveCameraAngle: boolean;
+    preserveBedStructure: boolean;
+    keepFabricTrueToLife: boolean;
+    forbidPartialReplacement: boolean;
+    forbidPatternRecreation: boolean;
+    salesPhotoRealism: boolean;
+    replaceRegions: string[];
+  };
+};
+
 export type PreviewJobRecord = {
   id: string;
   status: PreviewJobStatus;
   request: PreviewRequestPayload;
   imageInputs?: PreviewImageInputs;
   prompt: string;
+  promptBundle: PreviewPromptBundle;
+  aiRequest: PreviewAiRequestParams;
   resultImageUrl?: string;
   errorMessage?: string;
   createdAt: string;

@@ -40,6 +40,11 @@ export function ShowroomApp({ businesses, fabricLibrary }: ShowroomAppProps) {
     setSelectedCategory(business?.fabricCategories[0] ?? "");
   }
 
+  function handleEnterDemo(id: BusinessId) {
+    handleSelectBusiness(id);
+    setScreen("demo");
+  }
+
   return (
     <main className="min-h-screen bg-[#f7efe8] text-[#2d1f19]">
       <div className="mx-auto flex min-h-screen w-full max-w-[1600px] flex-col gap-6 px-5 py-5 lg:px-8">
@@ -48,14 +53,12 @@ export function ShowroomApp({ businesses, fabricLibrary }: ShowroomAppProps) {
             businesses={businesses}
             selectedBusiness={selectedBusiness}
             setSelectedBusiness={handleSelectBusiness}
-            onEnterDemo={() => setScreen("demo")}
+            onEnterDemo={handleEnterDemo}
           />
         ) : (
           <DemoScreen
-            businesses={businesses}
             fabricLibrary={fabricLibrary}
             activeBusiness={activeBusiness}
-            onSelectBusiness={handleSelectBusiness}
             onBack={() => setScreen("entry")}
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}

@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "家纺门店 AI 选布预览",
+  title: "家纺门店选布预览",
   description:
-    "面向婚庆家纺、高端手工定制和儿童床上用品的门店实时选布成品预览演示。",
+    "面向婚庆家纺和高端手工定制的门店选布预览系统，先做模板即时贴图，再做 AI 真实成品图生成。",
 };
 
 export default function RootLayout({

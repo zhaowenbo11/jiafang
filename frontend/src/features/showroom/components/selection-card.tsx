@@ -25,12 +25,6 @@ const fabricPatternMap: Record<string, string> = {
     "radial-gradient(circle at 18% 30%, rgba(255,255,255,0.18) 0 14%, transparent 15%), radial-gradient(circle at 74% 60%, rgba(255,255,255,0.18) 0 14%, transparent 15%)",
   gold:
     "linear-gradient(135deg, rgba(255,242,214,0.4), transparent 35%), linear-gradient(315deg, rgba(255,228,192,0.18), transparent 30%)",
-  cloud:
-    "radial-gradient(circle at 26% 42%, rgba(255,255,255,0.62) 0 12%, transparent 13%), radial-gradient(circle at 42% 38%, rgba(255,255,255,0.55) 0 10%, transparent 11%), radial-gradient(circle at 62% 60%, rgba(255,255,255,0.42) 0 12%, transparent 13%)",
-  forest:
-    "linear-gradient(120deg, transparent 0 38%, rgba(255,255,255,0.14) 38% 42%, transparent 42% 100%), linear-gradient(60deg, transparent 0 56%, rgba(255,255,255,0.14) 56% 60%, transparent 60% 100%)",
-  stars:
-    "radial-gradient(circle at 18% 22%, rgba(255,248,202,0.82) 0 1.2%, transparent 1.3%), radial-gradient(circle at 72% 18%, rgba(255,248,202,0.82) 0 1.2%, transparent 1.3%), radial-gradient(circle at 58% 62%, rgba(255,248,202,0.82) 0 1.4%, transparent 1.5%), radial-gradient(circle at 85% 45%, rgba(255,248,202,0.72) 0 1%, transparent 1.1%)",
 };
 
 export function SelectionCard({
@@ -73,11 +67,7 @@ export function SelectionCard({
                 style={{
                   backgroundImage: pattern ? fabricPatternMap[pattern] : undefined,
                   backgroundSize:
-                    pattern === "jacquard"
-                      ? "22px 22px"
-                      : pattern === "forest"
-                        ? "58px 58px"
-                        : "100% 100%",
+                    pattern === "jacquard" ? "22px 22px" : "100% 100%",
                 }}
               />
               <div className="absolute inset-x-3 top-3 h-px bg-white/30" />
